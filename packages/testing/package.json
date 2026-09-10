@@ -1,0 +1,11 @@
+{
+  "name": "@hiregari/testing",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "embedded-postgres": "18.4.0-beta.17",
+    "pg": "^8.23.0"
+  }
+}

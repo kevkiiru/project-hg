@@ -1,0 +1,34 @@
+{
+  "name": "hiregari",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hiregari — trusted car hire marketplace for Kenya",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "db:start": "node scripts/dev-db.mjs start",
+    "db:stop": "node scripts/dev-db.mjs stop",
+    "db:migrate": "npm run -w @hiregari/api prisma:migrate",
+    "db:push": "npm run -w @hiregari/api prisma:push",
+    "db:seed": "npm run -w @hiregari/api seed",
+    "db:studio": "npm run -w @hiregari/api prisma:studio",
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "setup": "node scripts/dev-db.mjs start && npm run db:push && npm run db:seed"
+  },
+  "devDependencies": {
+    "turbo": "^2.10.12",
+    "typescript": "~5.9.3",
+    "embedded-postgres": "18.4.0-beta.17",
+    "prettier": "^3.9.6",
+    "@types/node": "^22.20.2"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

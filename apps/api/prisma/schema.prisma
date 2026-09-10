@@ -1,0 +1,1883 @@
+// Hiregari — canonical DATA MODEL artifact (Prisma notation, PostgreSQL 16+).
+// See docs/decisions/ADR-0001: the executable/ORM schema lives at
+// apps/api/src/db/schema/* (Drizzle ORM); this file is the 1:1 Prisma
+// representation kept as the required Prisma deliverable and ERD source.
+// Money: Int minor units (cents), KES. Times: timestamptz UTC.
+// Temporal exclusion constraints & immutable triggers live in the companion
+// constraints.sql (neither ORM expresses btree_gist exclusions natively).
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [btree_gist, citext]
+}
+
+// ============================================================
+// Enumerations
+// ============================================================
+
+enum Role {
+  CUSTOMER
+  HOST
+  HOST_STAFF
+  SUPER_ADMIN
+  OPERATIONS
+  CUSTOMER_SUPPORT
+  VERIFICATION
+  FINANCE
+  CONTENT_MODERATION
+}
+
+enum ScopeType {
+  GLOBAL
+  BUSINESS
+  HOST
+}
+
+enum UserStatus {
+  REGISTERED
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum OtpChannel {
+  SMS
+  EMAIL
+  WHATSAPP
+}
+
+enum OtpPurpose {
+  LOGIN
+  VERIFY_PHONE
+  VERIFY_EMAIL
+}
+
+enum AuthTokenType {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+}
+
+enum VerificationStatus {
+  NOT_STARTED
+  PENDING
+  MANUAL_REVIEW
+  VERIFIED
+  REJECTED
+  EXPIRED
+}
+
+enum DocumentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  EXPIRED
+}
+
+enum DocumentOwnerType {
+  HOST
+  BUSINESS
+  DRIVER
+}
+
+enum HostType {
+  INDIVIDUAL
+  BUSINESS
+}
+
+enum HostStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+enum BusinessMemberStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  REMOVED
+}
+
+enum KycIdType {
+  KENYAN_ID
+  PASSPORT
+  ALIEN_ID
+}
+
+enum RiskResolution {
+  OPEN
+  REVIEWED
+  CLEARED
+  ESCALATED
+}
+
+enum VehicleCategory {
+  ECONOMY
+  SEDAN
+  SUV
+  FOUR_X_FOUR
+  LUXURY
+  VAN
+  SAFARI
+  ELECTRIC_HYBRID
+}
+
+enum VehicleStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  SUSPENDED
+  ARCHIVED
+}
+
+enum Transmission {
+  AUTOMATIC
+  MANUAL
+}
+
+enum FuelType {
+  PETROL
+  DIESEL
+  HYBRID
+  ELECTRIC
+}
+
+enum Drivetrain {
+  FWD
+  RWD
+  AWD
+  FOUR_WD
+}
+
+enum PickupOption {
+  AT_LOCATION
+  HOST_DELIVERY
+  AIRPORT
+  CUSTOM_AREA
+}
+
+enum BookingMode {
+  REQUEST
+  INSTANT
+}
+
+enum BookingStatus {
+  DRAFT
+  AWAITING_VERIFICATION
+  PENDING_HOST
+  PAYMENT_PENDING
+  CONFIRMED
+  PICKUP_PENDING
+  ACTIVE
+  RETURN_PENDING
+  COMPLETED
+  CANCELLED
+  DECLINED
+  EXPIRED
+  DISPUTED
+}
+
+enum HoldStatus {
+  ACTIVE
+  CONVERTED
+  EXPIRED
+  RELEASED
+}
+
+enum QuoteStatus {
+  ACTIVE
+  CONSUMED
+  EXPIRED
+}
+
+enum PriceItemKind {
+  RENTAL
+  EXTRA
+  DELIVERY
+  FEE
+  DISCOUNT
+  TAX
+  DEPOSIT
+  ADJUSTMENT
+}
+
+enum PaymentProvider {
+  MPESA
+  CARD
+}
+
+enum PaymentMethod {
+  MPESA_STK
+  MPESA_MANUAL
+  CARD_TOKENIZED
+}
+
+enum PaymentPurpose {
+  RENTAL
+  DEPOSIT
+  EXTENSION
+  ADJUSTMENT
+}
+
+enum PaymentStatus {
+  CREATED
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSED
+  IGNORED
+  FAILED
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REJECTED
+}
+
+enum DepositStatus {
+  REQUIRED
+  PENDING
+  HELD
+  COLLECTED
+  RELEASE_PENDING
+  RELEASED
+  PARTIALLY_DEDUCTED
+  DEDUCTED
+  DISPUTED
+  REFUNDED
+}
+
+enum DepositRule {
+  FIXED
+  PERCENT_OF_TOTAL
+  DAILY_RATE_MULTIPLE
+}
+
+enum PayoutStatus {
+  PENDING
+  SCHEDULED
+  PROCESSING
+  PAID
+  FAILED
+  HELD
+}
+
+enum MileagePolicyType {
+  UNLIMITED
+  PER_DAY
+  PER_BOOKING
+}
+
+enum FuelPolicy {
+  SAME_TO_SAME
+  FULL_TO_FULL
+}
+
+enum CancellationTier {
+  FLEXIBLE
+  MODERATE
+  STRICT
+  CUSTOM
+}
+
+enum PricingRuleKind {
+  DATE_OVERRIDE
+  SEASONAL
+}
+
+enum ExtraChargeType {
+  DAILY
+  ONE_OFF
+}
+
+enum BlockReason {
+  MANUAL
+  MAINTENANCE
+  BOOKING_BUFFER
+}
+
+enum InspectionType {
+  PICKUP
+  RETURN
+}
+
+enum AdjustmentKind {
+  LATE
+  EXCESS_MILEAGE
+  FUEL
+  DAMAGE
+  GOODWILL
+  OTHER
+}
+
+enum AdjustmentStatus {
+  PROPOSED
+  APPROVED
+  DISPUTED
+  FINAL
+}
+
+enum DamageStatus {
+  REPORTED
+  ACKNOWLEDGED
+  UNDER_REVIEW
+  ACCEPTED
+  REJECTED
+  ADJUSTED
+  CHARGED
+}
+
+enum DisputeStatus {
+  OPEN
+  AWAITING_CUSTOMER
+  AWAITING_HOST
+  UNDER_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+enum DisputeSubject {
+  DAMAGE
+  DEPOSIT
+  REFUND
+  VEHICLE_CONDITION
+  OTHER
+}
+
+enum IncidentCategory {
+  ACCIDENT
+  BREAKDOWN
+  THEFT
+  SAFETY
+  OTHER
+}
+
+enum ReviewSubject {
+  HOST
+  RENTER
+  VEHICLE
+}
+
+enum ModerationStatus {
+  PENDING
+  APPROVED
+  HIDDEN
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+}
+
+enum ConversationType {
+  BOOKING
+  LISTING
+  SUPPORT
+}
+
+enum MessageKind {
+  TEXT
+  IMAGE
+  SYSTEM
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  WHATSAPP
+  PUSH
+  IN_APP
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  SUPPRESSED
+}
+
+enum OutboxStatus {
+  PENDING
+  DISPATCHED
+  DEAD
+}
+
+enum JobStatus {
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum LedgerDirection {
+  DEBIT
+  CREDIT
+}
+
+enum LedgerAccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum ActorType {
+  CUSTOMER
+  HOST
+  HOST_STAFF
+  ADMIN
+  SYSTEM
+  PROVIDER
+}
+
+enum PromoKind {
+  PERCENT
+  FIXED
+}
+
+enum PromoScope {
+  GLOBAL
+  HOST
+  VEHICLE
+}
+
+enum SupportStatus {
+  OPEN
+  WAITING
+  RESOLVED
+  CLOSED
+}
+
+enum LocationKind {
+  CITY
+  NEIGHBOURHOOD
+  AIRPORT
+  REGION
+}
+
+// ============================================================
+// Identity & access
+// ============================================================
+
+model User {
+  id                String     @id @default(uuid()) @db.Uuid
+  email             String?    @unique()
+  emailNormalized   String?    @unique()
+  phoneE164         String?    @unique()
+  passwordHash      String?
+  googleSubject     String?    @unique()
+  appleSubject      String?    @unique()
+  firstName         String
+  lastName          String
+  avatarObjectKey   String?
+  status            UserStatus @default(REGISTERED)
+  emailVerifiedAt   DateTime?
+  phoneVerifiedAt   DateTime?
+  mfaSecretEnc      String?
+  mfaEnrolledAt     DateTime?
+  failedLoginCount  Int        @default(0)
+  lockedUntil       DateTime?
+  lastLoginAt       DateTime?
+  locale            String     @default("en")
+  isDemo            Boolean    @default(false)
+  metadata          Json       @default("{}")
+  anonymizedAt      DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  deletedAt         DateTime?
+
+  sessions          Session[]
+  otpChallenges     OtpChallenge[]
+  authTokens        AuthToken[]
+  roleAssignments   RoleAssignment[]
+  customerProfile   CustomerProfile?
+  hostProfile       HostProfile?
+  notifications     Notification[]
+  analyticsEvents   AnalyticsEvent[]
+  consentRecords    ConsentRecord[]
+
+  @@index([status])
+  @@map("users")
+}
+
+model Session {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @db.Uuid
+  tokenHash     String    @unique
+  csrfSecret    String?
+  userAgent     String?
+  ip            String?
+  lastUsedAt    DateTime  @default(now())
+  mfaVerifiedAt DateTime?
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model OtpChallenge {
+  id          String     @id @default(uuid()) @db.Uuid
+  userId      String?    @db.Uuid
+  channel     OtpChannel
+  purpose     OtpPurpose
+  to          String
+  codeHash    String
+  attempts    Int        @default(0)
+  maxAttempts Int        @default(5)
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime   @default(now())
+  user        User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([to, purpose, createdAt])
+  @@map("otp_challenges")
+}
+
+model AuthToken {
+  id         String        @id @default(uuid()) @db.Uuid
+  userId     String        @db.Uuid
+  type       AuthTokenType
+  tokenHash  String        @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime      @default(now())
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@map("auth_tokens")
+}
+
+model RoleAssignment {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  role        Role
+  scopeType   ScopeType @default(GLOBAL)
+  scopeId     String?
+  grantedById String?   @db.Uuid
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role, scopeType, scopeId])
+  @@index([role, scopeType, scopeId])
+  @@map("role_assignments")
+}
+
+model CustomerProfile {
+  id                 String             @id @default(uuid()) @db.Uuid
+  userId             String             @unique @db.Uuid
+  legalFirstName     String
+  legalLastName      String
+  dob                DateTime?
+  nationality        String?
+  countryOfResidence String?
+  photoObjectKey     String?
+  verificationStatus VerificationStatus @default(NOT_STARTED)
+  verifiedAt         DateTime?
+  verificationNote   String?
+  metadata           Json               @default("{}")
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  driverVerification DriverVerification?
+  addresses          Address[]
+
+  @@map("customer_profiles")
+}
+
+model Address {
+  id            String           @id @default(uuid()) @db.Uuid
+  entityType    String
+  entityId      String           @db.Uuid
+  label         String?
+  country       String           @default("KE")
+  county        String?
+  city          String?
+  neighbourhood String?
+  street        String?
+  landmark      String?
+  postalCode    String?
+  lat           Float?
+  lng           Float?
+  isPrimary     Boolean          @default(false)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  customerProfile   CustomerProfile? @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([entityType, entityId])
+  @@map("addresses")
+}
+
+model ConsentRecord {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  purpose     String
+  version     String
+  granted     Boolean
+  ip          String?
+  createdAt   DateTime  @default(now())
+  withdrawnAt DateTime?
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@map("consent_records")
+}
+
+// ============================================================
+// Hosts / businesses / verification documents
+// ============================================================
+
+model HostProfile {
+  id                    String           @id @default(uuid()) @db.Uuid
+  userId                String           @unique @db.Uuid
+  type                  HostType         @default(INDIVIDUAL)
+  status                HostStatus       @default(PENDING)
+  brandName             String?
+  bio                   String?
+  avatarObjectKey       String?
+  payoutProvider        String?
+  payoutAccountRefEnc   String?
+  payoutReadyAt         DateTime?
+  submittedAt           DateTime?
+  decidedAt             DateTime?
+  decidedById           String?          @db.Uuid
+  decisionNote          String?
+  ratingAverage         Float            @default(0)
+  ratingCount           Int              @default(0)
+  isDemo                Boolean          @default(false)
+  metadata              Json             @default("{}")
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  user                  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businesses            Business[]
+  vehicles              Vehicle[]
+  deliveryZones         DeliveryZone[]
+  bookings              Booking[]
+  payouts               Payout[]
+
+  @@index([status])
+  @@map("host_profiles")
+}
+
+model Business {
+  id                           String               @id @default(uuid()) @db.Uuid
+  hostProfileId               String               @db.Uuid
+  name                         String
+  registrationNumber           String?
+  kraPinEnc                    String?
+  phone                        String?
+  email                        String?
+  authorizedRepresentativeName String?
+  authorizedRepresentativeUserId String?           @db.Uuid
+  verificationStatus           VerificationStatus  @default(NOT_STARTED)
+  submittedAt                  DateTime?
+  decidedAt                    DateTime?
+  decidedById                  String?              @db.Uuid
+  decisionNote                 String?
+  metadata                     Json                 @default("{}")
+  createdAt                    DateTime             @default(now())
+  updatedAt                    DateTime             @updatedAt
+  hostProfile                  HostProfile          @relation(fields: [hostProfileId], references: [id], onDelete: Cascade)
+  members                      BusinessMember[]
+  vehicles                     Vehicle[]
+
+  @@index([verificationStatus])
+  @@map("businesses")
+}
+
+model BusinessMember {
+  id           String               @id @default(uuid()) @db.Uuid
+  businessId   String               @db.Uuid
+  userId       String               @db.Uuid
+  staffRole    String
+  permissions  String[]             @default([])
+  status       BusinessMemberStatus @default(INVITED)
+  invitedById  String?              @db.Uuid
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  business     Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, userId])
+  @@index([userId])
+  @@map("business_members")
+}
+
+model VerificationDocument {
+  id               String              @id @default(uuid()) @db.Uuid
+  ownerType        DocumentOwnerType
+  ownerId          String              @db.Uuid
+  documentType     String
+  objectKey        String
+  fileName         String
+  contentType      String
+  sizeBytes        Int
+  issuedAt         DateTime?
+  expiresAt        DateTime?
+  status           DocumentStatus      @default(PENDING)
+  reviewerId       String?             @db.Uuid
+  reviewedAt       DateTime?
+  reviewNote       String?
+  providerReference String?
+  metadata         Json                @default("{}")
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([ownerType, ownerId])
+  @@index([status, expiresAt])
+  @@map("verification_documents")
+}
+
+model DriverVerification {
+  id                  String               @id @default(uuid()) @db.Uuid
+  customerProfileId   String               @unique @db.Uuid
+  status              VerificationStatus   @default(NOT_STARTED)
+  legalFirstName      String
+  legalLastName       String
+  dob                 DateTime?
+  nationality         String?
+  idType              KycIdType?
+  idNumberEnc         String?
+  licenceNumberEnc    String?
+  licenceCountry      String?
+  licenceIssuedAt     DateTime?
+  licenceExpiresAt    DateTime?
+  selfieObjectKey     String?
+  effectiveExpiryAt   DateTime?
+  submittedAt         DateTime?
+  reviewerId          String?              @db.Uuid
+  reviewedAt          DateTime?
+  rejectionReasons    String[]             @default([])
+  providerReference   String?
+  metadata            Json                 @default("{}")
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  customerProfile     CustomerProfile      @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("driver_verifications")
+}
+
+model RiskEvent {
+  id          String         @id @default(uuid()) @db.Uuid
+  userId      String?        @db.Uuid
+  bookingId   String?        @db.Uuid
+  type        String
+  signals     Json           @default("{}")
+  riskScore   Int            @default(0)
+  resolution  RiskResolution @default(OPEN)
+  reviewerId  String?        @db.Uuid
+  note        String?
+  createdAt   DateTime       @default(now())
+  resolvedAt  DateTime?
+
+  @@index([resolution, createdAt])
+  @@index([userId])
+  @@map("risk_events")
+}
+
+// ============================================================
+// Locations
+// ============================================================
+
+model Location {
+  id            String       @id @default(uuid()) @db.Uuid
+  kind          LocationKind
+  country       String       @default("KE")
+  county        String?
+  city          String?
+  neighbourhood String?
+  name          String
+  slug          String       @unique
+  lat           Float
+  lng           Float
+  suggested     Boolean      @default(false)
+  sortOrder     Int          @default(0)
+  aliases       String[]     @default([])
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([county, kind])
+  @@map("locations")
+}
+
+// ============================================================
+// Vehicles / catalogue
+// ============================================================
+
+model Vehicle {
+  id                  String           @id @default(uuid()) @db.Uuid
+  hostProfileId       String           @db.Uuid
+  businessId          String?          @db.Uuid
+  reference           String           @unique
+  slug                String           @unique
+  status              VehicleStatus    @default(DRAFT)
+  title               String?
+  make                String
+  model               String
+  year                Int
+  category            VehicleCategory
+  transmission        Transmission?
+  fuelType            FuelType?
+  seats               Int?
+  doors               Int?
+  engineCapacityCc    Int?
+  drivetrain          Drivetrain?
+  bodyColour          String?
+  licensePlateEnc     String?
+  instantBookEnabled  Boolean          @default(false)
+  selfDriveEnabled    Boolean          @default(true)
+  chauffeurEnabled    Boolean          @default(false)
+  ac                   Boolean         @default(false)
+  description         String?
+  ratingAverage       Float            @default(0)
+  ratingCount         Int              @default(0)
+  submittedAt         DateTime?
+  decidedAt           DateTime?
+  decidedById         String?          @db.Uuid
+  rejectionReason     String?
+  isDemo              Boolean          @default(false)
+  metadata            Json             @default("{}")
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  hostProfile         HostProfile      @relation(fields: [hostProfileId], references: [id], onDelete: Cascade)
+  business            Business?        @relation(fields: [businessId], references: [id])
+  images              VehicleImage[]
+  features            VehicleFeature[]
+  documents           VehicleDocument[]
+  location            VehicleLocation?
+  pricing             VehiclePricing?
+  blocks              AvailabilityBlock[]
+  pricingRules        PricingRule[]
+  extras              RentalExtra[]
+  bookings            Booking[]
+  quotes              Quote[]
+
+  @@index([status, category])
+  @@index([hostProfileId])
+  @@index([make])
+  @@map("vehicles")
+}
+
+model VehicleImage {
+  id           String        @id @default(uuid()) @db.Uuid
+  vehicleId    String        @db.Uuid
+  objectKey    String
+  thumbnailKey String?
+  width        Int?
+  height       Int?
+  position     Int           @default(0)
+  isPrimary    Boolean       @default(false)
+  altText      String?
+  status       DocumentStatus @default(PENDING)
+  createdAt    DateTime      @default(now())
+  vehicle      Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId, position])
+  @@map("vehicle_images")
+}
+
+model FeatureCatalog {
+  code      String  @id
+  label     String
+  icon      String?
+  category  String?
+  active    Boolean @default(true)
+}
+
+model VehicleFeature {
+  id           String   @id @default(uuid()) @db.Uuid
+  vehicleId    String   @db.Uuid
+  featureCode  String
+  vehicle      Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@unique([vehicleId, featureCode])
+  @@map("vehicle_features")
+}
+
+model VehicleDocument {
+  id                String         @id @default(uuid()) @db.Uuid
+  vehicleId         String         @db.Uuid
+  documentType      String
+  objectKey         String
+  fileName          String
+  contentType       String
+  insurerName       String?
+  policyNumberEnc   String?
+  coverType         String?
+  restrictionsNote  String?
+  issuedAt          DateTime?
+  expiresAt         DateTime?
+  mandatory         Boolean        @default(true)
+  status            DocumentStatus @default(PENDING)
+  reviewerId        String?        @db.Uuid
+  reviewedAt        DateTime?
+  reviewNote        String?
+  metadata          Json           @default("{}")
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  vehicle           Vehicle        @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId])
+  @@index([status, expiresAt])
+  @@map("vehicle_documents")
+}
+
+model VehicleLocation {
+  id                  String   @id @default(uuid()) @db.Uuid
+  vehicleId           String   @unique @db.Uuid
+  locationId          String?  @db.Uuid
+  locationName        String?
+  pickupInstruction   String?
+  lat                 Float
+  lng                 Float
+  deliveryEnabled     Boolean  @default(false)
+  defaultAirportFeeCents Int?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  vehicle             Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  deliveryZones       DeliveryZone[]
+
+  @@index([locationId])
+  @@map("vehicle_locations")
+}
+
+model DeliveryZone {
+  id                String          @id @default(uuid()) @db.Uuid
+  hostProfileId     String?         @db.Uuid
+  vehicleLocationId String?         @db.Uuid
+  name              String
+  radiusKm          Float?
+  feeCents          Int             @default(0)
+  isAirport         Boolean         @default(false)
+  area              Json?
+  active            Boolean         @default(true)
+  createdAt         DateTime        @default(now())
+  hostProfile       HostProfile?    @relation(fields: [hostProfileId], references: [id])
+  vehicleLocation   VehicleLocation? @relation(fields: [vehicleLocationId], references: [id], onDelete: Cascade)
+
+  @@index([hostProfileId])
+  @@map("delivery_zones")
+}
+
+model VehiclePricing {
+  id                       String       @id @default(uuid()) @db.Uuid
+  vehicleId                String       @unique @db.Uuid
+  currency                 String       @default("KES")
+  dailyPriceCents          Int
+  weeklyDiscountBps        Int          @default(0)
+  monthlyDiscountBps       Int          @default(0)
+  minimumRentalHours       Int          @default(24)
+  minimumRentalDays        Int          @default(1)
+  depositRule              DepositRule  @default(FIXED)
+  depositAmountCents       Int          @default(0)
+  depositPercentBps        Int          @default(0)
+  depositDailyMultiplierBps Int        @default(0)
+  mileagePolicyType        MileagePolicyType @default(UNLIMITED)
+  includedKmPerDay         Int?
+  includedKmTotal          Int?
+  excessPerKmCents         Int?
+  fuelPolicy               FuelPolicy   @default(SAME_TO_SAME)
+  lateGraceMinutes         Int          @default(60)
+  lateHourlyFeeCents       Int          @default(0)
+  cancellationPolicyId     String?
+  createdAt                DateTime     @default(now())
+  updatedAt                DateTime     @updatedAt
+  vehicle                  Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@map("vehicle_pricing")
+}
+
+model PricingRule {
+  id              String          @id @default(uuid()) @db.Uuid
+  vehicleId       String          @db.Uuid
+  kind            PricingRuleKind
+  startsAt        DateTime
+  endsAt          DateTime
+  dailyPriceCents Int
+  note            String?
+  createdAt       DateTime        @default(now())
+  vehicle         Vehicle         @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId, startsAt])
+  @@map("pricing_rules")
+}
+
+model RentalExtra {
+  id          String          @id @default(uuid()) @db.Uuid
+  vehicleId   String?         @db.Uuid
+  code        String
+  label       String
+  chargeType  ExtraChargeType
+  unitCents   Int
+  maxQuantity Int             @default(1)
+  active      Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  vehicle     Vehicle?        @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId])
+  @@map("rental_extras")
+}
+
+model CancellationPolicy {
+  id              String           @id @default(uuid()) @db.Uuid
+  code            String           @unique
+  name            String
+  tier            CancellationTier
+  rules           Json             @default("[]")
+  depositBehavior String
+  description     String?
+  isSystem        Boolean          @default(false)
+  active          Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model AvailabilityBlock {
+  id           String      @id @default(uuid()) @db.Uuid
+  vehicleId    String      @db.Uuid
+  reason       BlockReason @default(MANUAL)
+  startsAt     DateTime
+  endsAt       DateTime
+  note         String?
+  createdById  String?     @db.Uuid
+  createdAt    DateTime    @default(now())
+  vehicle      Vehicle     @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId, startsAt, endsAt])
+  @@map("availability_blocks")
+}
+
+// ============================================================
+// Quotes, bookings, holds
+// ============================================================
+
+model Quote {
+  id                String        @id @default(uuid()) @db.Uuid
+  reference         String        @unique
+  userId            String        @db.Uuid
+  vehicleId         String        @db.Uuid
+  status            QuoteStatus   @default(ACTIVE)
+  pickupAt          DateTime
+  returnAt          DateTime
+  timezone          String        @default("Africa/Nairobi")
+  pickupOption      PickupOption  @default(AT_LOCATION)
+  deliveryZoneId    String?       @db.Uuid
+  promoCodeId       String?       @db.Uuid
+  rentalSubtotalCents Int
+  extrasCents       Int           @default(0)
+  deliveryCents     Int           @default(0)
+  serviceFeeCents   Int           @default(0)
+  discountCents     Int           @default(0)
+  taxCents          Int           @default(0)
+  depositCents      Int           @default(0)
+  totalCents        Int
+  refundableCents   Int           @default(0)
+  commissionBps     Int           @default(0)
+  currency          String        @default("KES")
+  extrasSelection   Json          @default("[]")
+  pricingFingerprint String
+  idempotencyKey    String?       @unique
+  expiresAt         DateTime
+  consumedAt        DateTime?
+  createdAt         DateTime      @default(now())
+  vehicle           Vehicle       @relation(fields: [vehicleId], references: [id])
+  items             QuoteItem[]
+
+  @@index([userId, status])
+  @@index([vehicleId])
+  @@map("quotes")
+}
+
+model QuoteItem {
+  id          String        @id @default(uuid()) @db.Uuid
+  quoteId     String        @db.Uuid
+  kind        PriceItemKind
+  code        String
+  label       String
+  quantity    Int           @default(1)
+  unitCents   Int
+  amountCents Int
+  metadata    Json?
+  quote       Quote         @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
+  @@map("quote_items")
+}
+
+model PromoCode {
+  id                String     @id @default(uuid()) @db.Uuid
+  code              String     @unique
+  description       String?
+  kind              PromoKind
+  percentBps        Int?
+  amountCents       Int?
+  maxDiscountCents  Int?
+  minBookingCents   Int        @default(0)
+  scope             PromoScope @default(GLOBAL)
+  scopeId           String?
+  fundedBy          String     @default("HOST")
+  startsAt          DateTime?
+  endsAt            DateTime?
+  maxRedemptions    Int?
+  perUserOnce       Boolean    @default(true)
+  active            Boolean    @default(true)
+  createdAt         DateTime   @default(now())
+  redemptions       PromoRedemption[]
+
+  @@index([active])
+  @@map("promo_codes")
+}
+
+model PromoRedemption {
+  id          String    @id @default(uuid()) @db.Uuid
+  promoId     String    @db.Uuid
+  userId      String    @db.Uuid
+  bookingId   String    @db.Uuid
+  amountCents Int
+  createdAt   DateTime  @default(now())
+  promo       PromoCode @relation(fields: [promoId], references: [id])
+
+  @@unique([promoId, userId, bookingId])
+  @@map("promo_redemptions")
+}
+
+model Booking {
+  id                          String           @id @default(uuid()) @db.Uuid
+  reference                   String           @unique
+  quoteId                     String?          @unique @db.Uuid
+  customerId                  String           @db.Uuid
+  vehicleId                   String           @db.Uuid
+  hostProfileId               String           @db.Uuid
+  businessId                  String?          @db.Uuid
+  mode                        BookingMode      @default(REQUEST)
+  status                      BookingStatus    @default(DRAFT)
+  scheduledPickupAt           DateTime
+  scheduledReturnAt           DateTime
+  timezone                    String           @default("Africa/Nairobi")
+  pickupOption                PickupOption     @default(AT_LOCATION)
+  deliveryZoneId              String?          @db.Uuid
+  deliverySnapshot            Json?
+  rentalSubtotalCents         Int              @default(0)
+  extrasCents                 Int              @default(0)
+  deliveryCents               Int              @default(0)
+  serviceFeeCents             Int              @default(0)
+  discountCents               Int              @default(0)
+  taxCents                    Int              @default(0)
+  depositCents                Int              @default(0)
+  totalCents                  Int              @default(0)
+  currency                    String           @default("KES")
+  commissionBps               Int              @default(0)
+  mileagePolicyType           MileagePolicyType @default(UNLIMITED)
+  includedKmTotal             Int?
+  excessPerKmCents            Int?
+  fuelPolicy                  FuelPolicy       @default(SAME_TO_SAME)
+  cancellationPolicyCode      String?
+  cancellation                Json?
+  confirmedAt                 DateTime?
+  hostRespondedAt             DateTime?
+  pickedUpAt                  DateTime?
+  returnedAt                  DateTime?
+  cancelledAt                 DateTime?
+  declinedAt                  DateTime?
+  expiredAt                   DateTime?
+  extensionOfBookingId        String?          @db.Uuid
+  lockVersion                 Int              @default(0)
+  metadata                    Json             @default("{}")
+  isDemo                      Boolean          @default(false)
+  createdAt                   DateTime         @default(now())
+  updatedAt                   DateTime         @updatedAt
+
+  vehicle                     Vehicle          @relation(fields: [vehicleId], references: [id])
+  hostProfile                 HostProfile      @relation(fields: [hostProfileId], references: [id])
+  statusHistory               BookingStatusHistory[]
+  hold                        BookingHold?
+  priceSnapshot               BookingPriceSnapshot?
+  payments                    Payment[]
+  deposit                     Deposit?
+  refunds                     Refund[]
+  adjustments                 BookingAdjustment[]
+  pickupInspection            PickupInspection?
+  returnInspection            ReturnInspection?
+  damageReports               DamageReport[]
+  disputes                    Dispute[]
+  incidentReports             IncidentReport[]
+  reviews                     Review[]
+  payoutBookings              PayoutBooking[]
+
+  @@index([customerId, status])
+  @@index([hostProfileId, status])
+  @@index([vehicleId, status])
+  @@index([status, scheduledPickupAt])
+  @@index([extensionOfBookingId])
+  @@map("bookings")
+}
+
+model BookingHold {
+  id          String     @id @default(uuid()) @db.Uuid
+  vehicleId   String     @db.Uuid
+  bookingId   String?    @unique @db.Uuid
+  quoteId     String?    @db.Uuid
+  userId      String     @db.Uuid
+  status      HoldStatus @default(ACTIVE)
+  startsAt    DateTime
+  endsAt      DateTime
+  expiresAt   DateTime
+  createdAt   DateTime   @default(now())
+
+  @@index([vehicleId, status, expiresAt])
+  @@index([status, expiresAt])
+  @@map("booking_holds")
+}
+
+model BookingStatusHistory {
+  id          String         @id @default(uuid()) @db.Uuid
+  bookingId   String         @db.Uuid
+  fromStatus  BookingStatus?
+  toStatus    BookingStatus
+  actorType   ActorType      @default(SYSTEM)
+  actorId     String?        @db.Uuid
+  reason      String?
+  metadata    Json?
+  createdAt   DateTime       @default(now())
+  booking     Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, createdAt])
+  @@map("booking_status_history")
+}
+
+model BookingPriceSnapshot {
+  id                   String    @id @default(uuid()) @db.Uuid
+  bookingId            String    @unique @db.Uuid
+  currency             String
+  dailyRateCents       Int
+  billableDays         Int
+  rentalSubtotalCents  Int
+  extrasCents          Int
+  deliveryCents        Int
+  serviceFeeCents      Int
+  discountCents        Int
+  taxCents             Int
+  depositCents         Int
+  totalCents           Int
+  refundableCents      Int
+  commissionBps        Int
+  createdAt            DateTime  @default(now())
+  booking              Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  items                BookingPriceItem[]
+
+  @@map("booking_price_snapshots")
+}
+
+model BookingPriceItem {
+  id           String        @id @default(uuid()) @db.Uuid
+  snapshotId   String        @db.Uuid
+  kind         PriceItemKind
+  code         String
+  label        String
+  quantity     Int           @default(1)
+  unitCents    Int
+  amountCents  Int
+  metadata     Json?
+  snapshot     BookingPriceSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  @@index([snapshotId])
+  @@map("booking_price_items")
+}
+
+model BookingExtraSelection {
+  id           String          @id @default(uuid()) @db.Uuid
+  bookingId    String          @db.Uuid
+  code         String
+  label        String
+  chargeType   ExtraChargeType
+  quantity     Int
+  unitCents    Int
+  amountCents  Int
+  createdAt    DateTime        @default(now())
+
+  @@index([bookingId])
+  @@map("booking_extra_selections")
+}
+
+model BookingAdjustment {
+  id              String           @id @default(uuid()) @db.Uuid
+  bookingId       String           @db.Uuid
+  kind            AdjustmentKind
+  amountCents     Int
+  currency        String           @default("KES")
+  status          AdjustmentStatus @default(PROPOSED)
+  reason          String
+  actorType       ActorType        @default(SYSTEM)
+  createdById     String?          @db.Uuid
+  decidedById     String?          @db.Uuid
+  decidedAt       DateTime?
+  damageReportId  String?          @db.Uuid
+  metadata        Json?
+  createdAt       DateTime         @default(now())
+  booking         Booking          @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, status])
+  @@map("booking_adjustments")
+}
+
+// ============================================================
+// Money
+// ============================================================
+
+model Payment {
+  id                  String           @id @default(uuid()) @db.Uuid
+  reference           String           @unique
+  bookingId           String?          @db.Uuid
+  purpose             PaymentPurpose   @default(RENTAL)
+  provider            PaymentProvider
+  method              PaymentMethod
+  status              PaymentStatus    @default(CREATED)
+  amountCents         Int
+  currency            String           @default("KES")
+  idempotencyKey      String           @unique
+  providerRef         String?
+  providerCheckoutUrl String?
+  providerPayload     Json?
+  failureCode         String?
+  failureMessage      String?
+  requestedPhone      String?
+  initiatedById       String?          @db.Uuid
+  expiresAt           DateTime?
+  paidAt              DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  booking             Booking?         @relation(fields: [bookingId], references: [id])
+  webhookEvents       PaymentWebhookEvent[]
+  refunds             Refund[]
+
+  @@index([bookingId, status])
+  @@index([provider, status])
+  @@index([status, expiresAt])
+  @@map("payments")
+}
+
+model PaymentWebhookEvent {
+  id               String              @id @default(uuid()) @db.Uuid
+  provider         PaymentProvider
+  providerEventId  String
+  status           WebhookEventStatus  @default(RECEIVED)
+  signatureValid   Boolean             @default(false)
+  rawPayload       String?
+  payloadHash      String
+  attempts         Int                 @default(0)
+  lastError        String?
+  paymentRef       String?
+  processedAt      DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  payment          Payment?            @relation(fields: [paymentRef], references: [reference], onDelete: SetNull)
+
+  @@unique([provider, providerEventId])
+  @@index([status])
+  @@map("payment_webhook_events")
+}
+
+model Refund {
+  id             String       @id @default(uuid()) @db.Uuid
+  reference      String       @unique
+  bookingId      String       @db.Uuid
+  paymentId      String       @db.Uuid
+  depositId      String?      @db.Uuid
+  amountCents    Int
+  currency       String       @default("KES")
+  reason         String
+  actorType      ActorType
+  actorId        String?      @db.Uuid
+  providerRef    String?
+  status         RefundStatus @default(PENDING)
+  idempotencyKey String       @unique
+  failureReason  String?
+  processedAt    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  booking        Booking      @relation(fields: [bookingId], references: [id])
+  payment        Payment      @relation(fields: [paymentId], references: [id])
+
+  @@index([bookingId])
+  @@index([status])
+  @@map("refunds")
+}
+
+model Deposit {
+  id               String        @id @default(uuid()) @db.Uuid
+  bookingId        String        @unique @db.Uuid
+  status           DepositStatus @default(REQUIRED)
+  rule             Json          @default("{}")
+  amountCents      Int
+  currency         String        @default("KES")
+  paymentId        String?       @db.Uuid
+  releasedCents    Int           @default(0)
+  deductedCents    Int           @default(0)
+  reasonCodes      Json          @default("[]")
+  scheduledReleaseAt DateTime?
+  finalizedAt      DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  booking          Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledReleaseAt])
+  @@map("deposits")
+}
+
+model LedgerAccount {
+  id         String            @id @default(uuid()) @db.Uuid
+  code       String            @unique
+  name       String
+  type       LedgerAccountType
+  currency   String            @default("KES")
+  archivedAt DateTime?
+  createdAt  DateTime          @default(now())
+  entries    LedgerEntry[]
+}
+
+model LedgerEntry {
+  id            String          @id @default(uuid()) @db.Uuid
+  postingGroup  String
+  accountId     String          @db.Uuid
+  direction     LedgerDirection
+  amountCents   Int
+  currency      String          @default("KES")
+  bookingId     String?         @db.Uuid
+  paymentId     String?         @db.Uuid
+  payoutId      String?         @db.Uuid
+  depositId     String?         @db.Uuid
+  refundId      String?         @db.Uuid
+  externalRef   String?
+  memo          String
+  idempotencyKey String         @unique
+  createdAt     DateTime        @default(now())
+  account       LedgerAccount   @relation(fields: [accountId], references: [id])
+
+  @@index([postingGroup])
+  @@index([accountId, createdAt])
+  @@index([bookingId])
+  @@map("ledger_entries")
+}
+
+model Payout {
+  id               String       @id @default(uuid()) @db.Uuid
+  reference        String       @unique
+  hostProfileId    String       @db.Uuid
+  businessId       String?      @db.Uuid
+  status           PayoutStatus @default(PENDING)
+  grossCents       Int
+  commissionCents  Int
+  adjustmentsCents Int          @default(0)
+  netCents         Int
+  currency         String       @default("KES")
+  scheduledFor     DateTime?
+  providerRef      String?
+  failureReason    String?
+  initiatedById    String?      @db.Uuid
+  processedAt      DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  hostProfile      HostProfile  @relation(fields: [hostProfileId], references: [id])
+  payoutBookings   PayoutBooking[]
+
+  @@index([hostProfileId, status])
+  @@index([status, scheduledFor])
+  @@map("payouts")
+}
+
+model PayoutBooking {
+  id               String  @id @default(uuid()) @db.Uuid
+  payoutId         String  @db.Uuid
+  bookingId        String  @db.Uuid
+  grossCents       Int
+  commissionCents  Int
+  adjustmentsCents Int     @default(0)
+  netCents         Int
+  payout           Payout  @relation(fields: [payoutId], references: [id], onDelete: Cascade)
+  booking          Booking @relation(fields: [bookingId], references: [id])
+
+  @@unique([payoutId, bookingId])
+  @@index([bookingId])
+  @@map("payout_bookings")
+}
+
+// ============================================================
+// Rental operations
+// ============================================================
+
+model PickupInspection {
+  id               String    @id @default(uuid()) @db.Uuid
+  bookingId        String    @unique @db.Uuid
+  submittedById    String    @db.Uuid
+  odometerKm       Decimal?  @db.Decimal(10, 1)
+  fuelLevel        Int?
+  exteriorNotes    String?
+  interiorNotes    String?
+  notes            String?
+  lat              Float?
+  lng              Float?
+  renterSignedAt   DateTime?
+  hostSignedAt     DateTime?
+  renterSignedById String?   @db.Uuid
+  hostSignedById   String?   @db.Uuid
+  createdAt        DateTime  @default(now())
+  booking          Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  photos           InspectionPhoto[]
+
+  @@map("pickup_inspections")
+}
+
+model ReturnInspection {
+  id               String    @id @default(uuid()) @db.Uuid
+  bookingId        String    @unique @db.Uuid
+  submittedById    String    @db.Uuid
+  odometerKm       Decimal?  @db.Decimal(10, 1)
+  fuelLevel        Int?
+  notes            String?
+  actualReturnedAt DateTime
+  distanceKm       Decimal?  @db.Decimal(10, 1)
+  lateMinutes      Int?
+  lat              Float?
+  lng              Float?
+  renterSignedAt   DateTime?
+  hostSignedAt     DateTime?
+  renterSignedById String?   @db.Uuid
+  hostSignedById   String?   @db.Uuid
+  createdAt        DateTime  @default(now())
+  booking          Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  photos           InspectionPhoto[]
+
+  @@map("return_inspections")
+}
+
+model InspectionPhoto {
+  id                 String          @id @default(uuid()) @db.Uuid
+  inspectionType     InspectionType
+  pickupInspectionId String?         @db.Uuid
+  returnInspectionId String?         @db.Uuid
+  bookingId          String          @db.Uuid
+  objectKey          String
+  angle              String?
+  label              String?
+  uploadedById       String          @db.Uuid
+  createdAt          DateTime        @default(now())
+  pickupInspection   PickupInspection? @relation(fields: [pickupInspectionId], references: [id], onDelete: Cascade)
+  returnInspection   ReturnInspection? @relation(fields: [returnInspectionId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("inspection_photos")
+}
+
+model InspectionAmendment {
+  id             String         @id @default(uuid()) @db.Uuid
+  inspectionType InspectionType
+  inspectionId   String         @db.Uuid
+  changes        Json
+  actorId        String         @db.Uuid
+  reason         String
+  createdAt      DateTime       @default(now())
+
+  @@index([inspectionType, inspectionId])
+  @@map("inspection_amendments")
+}
+
+model DamageReport {
+  id                   String       @id @default(uuid()) @db.Uuid
+  bookingId            String       @db.Uuid
+  reportedByType       ActorType
+  reportedById         String       @db.Uuid
+  category             String?
+  description          String
+  estimatedAmountCents Int?
+  currency             String       @default("KES")
+  photoKeys            String[]     @default([])
+  status               DamageStatus @default(REPORTED)
+  decidedById          String?      @db.Uuid
+  decisionNote         String?
+  decidedAt            DateTime?
+  adjustmentId         String?      @db.Uuid
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  booking              Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([status])
+  @@map("damage_reports")
+}
+
+model Dispute {
+  id            String         @id @default(uuid()) @db.Uuid
+  reference     String         @unique
+  bookingId     String         @db.Uuid
+  openedById    String         @db.Uuid
+  openedByType  ActorType
+  subject       DisputeSubject
+  status        DisputeStatus  @default(OPEN)
+  description   String
+  resolution    String?
+  assignedById  String?        @db.Uuid
+  decidedById   String?        @db.Uuid
+  resolvedAt    DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  booking       Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  messages      DisputeMessage[]
+
+  @@index([status])
+  @@index([bookingId])
+  @@map("disputes")
+}
+
+model DisputeMessage {
+  id          String   @id @default(uuid()) @db.Uuid
+  disputeId   String   @db.Uuid
+  authorId    String?  @db.Uuid
+  authorType  ActorType
+  body        String
+  internal    Boolean  @default(false)
+  attachments String[] @default([])
+  createdAt   DateTime @default(now())
+  dispute     Dispute  @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+
+  @@index([disputeId])
+  @@map("dispute_messages")
+}
+
+model IncidentReport {
+  id           String           @id @default(uuid()) @db.Uuid
+  reference    String           @unique
+  bookingId    String           @db.Uuid
+  reportedById String           @db.Uuid
+  category     IncidentCategory
+  description  String
+  lat          Float?
+  lng          Float?
+  photoKeys    String[]         @default([])
+  policeRef    String?
+  contactPhone String?
+  status       String           @default("SUBMITTED")
+  acknowledgedById String?     @db.Uuid
+  resolvedAt   DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  booking      Booking          @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("incident_reports")
+}
+
+// ============================================================
+// Trust / engagement
+// ============================================================
+
+model Conversation {
+  id          String                   @id @default(uuid()) @db.Uuid
+  reference   String                   @unique
+  type        ConversationType
+  bookingId   String?                  @db.Uuid
+  vehicleId   String?                  @db.Uuid
+  lastMessageAt DateTime?
+  createdAt   DateTime                 @default(now())
+  participants ConversationParticipant[]
+  messages    Message[]
+
+  @@index([bookingId])
+  @@index([vehicleId])
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             String       @id @default(uuid()) @db.Uuid
+  conversationId String       @db.Uuid
+  userId         String       @db.Uuid
+  lastReadAt     DateTime?
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id               String           @id @default(uuid()) @db.Uuid
+  conversationId   String           @db.Uuid
+  senderId         String?          @db.Uuid
+  kind             MessageKind      @default(TEXT)
+  body             String?
+  attachmentKey    String?
+  systemEventType  String?
+  createdAt        DateTime         @default(now())
+  conversation     Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+model Review {
+  id               String           @id @default(uuid()) @db.Uuid
+  bookingId        String           @db.Uuid
+  reviewerId       String           @db.Uuid
+  subject          ReviewSubject
+  subjectId        String           @db.Uuid
+  rating           Int
+  dimensions       Json             @default("{}")
+  comment          String?
+  visible          Boolean          @default(true)
+  moderationStatus ModerationStatus @default(APPROVED)
+  hostReply        String?
+  hostReplyAt      DateTime?
+  createdAt        DateTime         @default(now())
+  booking          Booking          @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingId, reviewerId, subject])
+  @@index([subject, subjectId])
+  @@map("reviews")
+}
+
+model ReviewReport {
+  id          String       @id @default(uuid()) @db.Uuid
+  reviewId    String       @db.Uuid
+  reporterId  String       @db.Uuid
+  reason      String
+  status      ReportStatus @default(OPEN)
+  createdAt   DateTime     @default(now())
+  resolvedAt  DateTime?
+
+  @@index([status])
+  @@map("review_reports")
+}
+
+// ============================================================
+// Notifications / jobs / ops
+// ============================================================
+
+model Notification {
+  id          String              @id @default(uuid()) @db.Uuid
+  userId      String              @db.Uuid
+  type        String
+  channel     NotificationChannel
+  status      NotificationStatus  @default(QUEUED)
+  template    String?
+  title       String?
+  body        String?
+  context     Json                @default("{}")
+  attempts    Int                 @default(0)
+  lastError   String?
+  providerRef String?
+  scheduledFor DateTime           @default(now())
+  sentAt      DateTime?
+  createdAt   DateTime            @default(now())
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([status, scheduledFor])
+  @@map("notifications")
+}
+
+model OutboxEvent {
+  id           String      @id @default(uuid()) @db.Uuid
+  aggregate    String
+  aggregateId  String?     @db.Uuid
+  type         String
+  payload      Json
+  status       OutboxStatus @default(PENDING)
+  attempts     Int         @default(0)
+  lastError    String?
+  scheduledAt  DateTime    @default(now())
+  dispatchedAt DateTime?
+  createdAt    DateTime    @default(now())
+
+  @@index([status, scheduledAt])
+  @@map("outbox_events")
+}
+
+model JobRun {
+  id         String    @id @default(uuid()) @db.Uuid
+  name       String
+  status     JobStatus @default(RUNNING)
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  error      String?
+  metadata   Json?
+
+  @@index([name, startedAt])
+  @@map("job_runs")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorId     String?  @db.Uuid
+  actorRole   String?
+  action      String
+  entityType  String
+  entityId    String   @db.Uuid
+  prevValue   Json?
+  newValue    Json?
+  reason      String?
+  requestId   String?
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model AnalyticsEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  distinctId  String?
+  userId      String?  @db.Uuid
+  event       String
+  props       Json     @default("{}")
+  createdAt   DateTime @default(now())
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([event, createdAt])
+  @@index([userId])
+  @@map("analytics_events")
+}
+
+model SupportRequest {
+  id          String        @id @default(uuid()) @db.Uuid
+  reference   String        @unique
+  userId      String?       @db.Uuid
+  bookingId   String?       @db.Uuid
+  category    String
+  subject     String
+  body        String
+  status      SupportStatus @default(OPEN)
+  email       String?
+  messages    Json          @default("[]")
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([status])
+  @@map("support_requests")
+}

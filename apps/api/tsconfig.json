@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "target": "ES2022",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "useDefineForClassFields": false,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@hiregari/types": ["../../packages/types/src/index.ts"],
+      "@hiregari/testing": ["../../packages/testing/src/index.ts"],
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["src", "prisma", "vitest.config.ts"]
+}
